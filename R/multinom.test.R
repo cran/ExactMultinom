@@ -27,16 +27,17 @@
 #' 
 #' The "Monte-Carlo" method returns estimates based on \code{N} random draws from the hypothesized distribution. 
 #' 
-#' @return A list containing
-#' \itemize{
-#'   \item \code{$x} - as input by user
-#'   \item \code{$p} - as input by user
-#'   \item \code{$theta} - as input by user or default
-#'   \item \code{$pvals_ex} - Exact p-values or NA. WARNING: Values less than theta are NOT exact p-values, but only imply that the actual p-value is less than that value.
-#'   \item \code{$pvals_as} - Asymptotic approximation to p-values or NA.
-#'   \item \code{$pvals_mc} - Monte-Carlo estimated p-values or NA.
-#' }
+#' @return A list with class "mgof" containing
+#'   \item{\code{x}}{As input by user.}
+#'   \item{\code{p}}{As input by user.}
+#'   \item{\code{stat}}{As input by user or default.}
+#'   \item{\code{method}}{As input by user or default.}
+#'   \item{\code{theta}}{As input by user or default.}
+#'   \item{\code{pvals_ex}}{Exact p-values or NA. WARNING: Values less than theta are NOT exact p-values, but only imply that the actual p-value is less than that value.}
+#'   \item{\code{pvals_as}}{Asymptotic approximation to p-values or NA.}
+#'   \item{\code{pvals_mc}}{Monte-Carlo estimated p-values or NA.}
 #' The first p-value (e.g., \code{pvals_ex[1]}) is obtained from the probability mass, the second from Pearson's chi-square and the third from the log-likelihood ratio.
+#' 
 #' 
 #' @note Each method computes p-values for all three test statistics simultaneously.
 #' 
@@ -58,36 +59,34 @@
 #' # Using Monte-Carlo approach and probability ordering 
 #' multinom.test(x,p_fair,stat = "Prob",method = "Monte-Carlo")
 
-
 multinom.test = function(x,p,stat = "Prob",method = "exact",theta = 0.0001,timelimit = 10,N = 10000){
+  if(length(which(c("Prob","Chisq","LLR") == stat)) == 0) stop("stat must be \"Prob\", \"Chisq\" or \"LLR\"")
   if(length(x)!=length(p)) stop("x and p are not of same length")
   if(any(is.na(x)) || any(x < 0) || max(abs(x-round(x))) > 10^-8) stop("x must be non-negative integers")
   if(any(p <= 0)) stop("Entries of p must be greater 0")
   p = p/sum(p)
-  
-  statNo = which(c("Prob","Chisq","LLR") == stat)
-  if(length(statNo) == 0) stop("stat must be \"Prob\", \"Chisq\" or \"LLR\"")
-  pval = NA
+  called_method = FALSE
   
   pvals_ex = NA
   if(is.element("exact",method)){
+    called_method = TRUE
     if(length(x) > 15) stop("The exact method is not suited for this many outcomes. Use asymptotic or Monte-Carlo method instead.")
     setTimeLimit(cpu = timelimit,elapsed = timelimit)
     on.exit(setTimeLimit(cpu = Inf,elapsed = Inf))
     pvals_ex = multinom_test_cpp(x[order(p,decreasing = TRUE)],p[order(p,decreasing = TRUE)],theta)
     setTimeLimit(cpu = Inf,elapsed = Inf)
   }
-  pval = pvals_ex[statNo]
   
   pvals_as = NA
   if(is.element("asymptotic",method)){
+    called_method = TRUE
     m = length(x)
     pvals_as = 1-c(pchisq(t_prob(x,p),m-1),pchisq(t_chisq(x,p),m-1),pchisq(t_llr(x,p),m-1))
   }
-  if(is.na(pval)) pval = pvals_as[statNo]
-  
+
   pvals_mc = NA
   if(is.element("Monte-Carlo",method)){
+    called_method = TRUE
     m = length(x)
     n = sum(x)
     x_sim = rmultinom(N,n,p)
@@ -99,12 +98,21 @@ multinom.test = function(x,p,stat = "Prob",method = "exact",theta = 0.0001,timel
     }
     pvals_mc = sapply(c(t_prob,t_chisq,t_llr),mc_pval)
   }
-  if(is.na(pval)) pval = pvals_mc[statNo]
-  if(is.na(pval)) stop("method must be \"exact\",\"asymptotic\" or \"Monte-Carlo\"")
-  if(method[1] == "exact" && pval < theta) cat("\nMultinomial Goodness-of-Fit Test\n\nP-value less than theta =",theta, "with",stat,"statistic using",method[1],"method.\n\n") 
-  else cat("\nMultinomial Goodness-of-Fit Test\n\nP-value of",pval, "with",stat,"statistic using",method[1],"method.\n\n")
+
+  if(!called_method) stop("method must be \"exact\",\"asymptotic\" or \"Monte-Carlo\"")
   
-  invisible(list(x,p,theta,pvals_ex,pvals_as,pvals_mc)) 
+  structure(list(x = x,p = p,stat = stat,method = method,theta = theta,pvals_ex = pvals_ex,pvals_as = pvals_as,pvals_mc = pvals_mc),class = "mgof")
 }
 
 
+#' @export
+print.mgof = function(x, ...){
+  statNo = which(c("Prob","Chisq","LLR") == x$stat)
+  methodNo = which(c("exact","asymptotic","Monte-Carlo") == x$method[1])
+  pval = rbind(x$pvals_ex,x$pvals_as,x$pvals_mc)[methodNo,statNo]
+  
+  if(methodNo == 1 && pval < x$theta) cat("\nMultinomial Goodness-of-Fit Test\n\nP-value less than theta =",x$theta, "with",x$stat,"statistic using",x$method[1],"method.\n\n") 
+  else cat("\nMultinomial Goodness-of-Fit Test\n\nP-value of",pval, "with",x$stat,"statistic using",x$method[1],"method.\n\n")
+  
+  invisible(x)
+}
