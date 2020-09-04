@@ -1,0 +1,11 @@
+19893e6aed70830bce6115db9a448270 *DESCRIPTION
+bf178d432f0cc9815cd702d538e427fb *NAMESPACE
+654fcfb4954fb1fde3f4d3e7bbdc59cf *NEWS.md
+4351128ca276abcea83fdcf6b048e4b9 *R/RcppExports.R
+0fe8eed72d986225c8ecde9cd514e4f3 *R/multinom.test.R
+ceeb9cef1343097c145cfc1b4bd9cadd *R/t_fun.R
+ea295db7c62ebf4a5ba1e279aa7e5e00 *README.md
+57e9aa689b3655758f93a3818f4cc8dc *man/multinom.test.Rd
+8c9070cdd2c96e51bfbe3faa3bf70a04 *man/multinom_test_cpp.Rd
+70f8119c0aed987d7aa689edda78a449 *src/RcppExports.cpp
+60feaf896e9b31f6f745bbdfeac31c2e *src/multinom_test.cpp
